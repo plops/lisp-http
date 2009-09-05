@@ -1,27 +1,48 @@
 
 (require :sb-bsd-sockets)
+(require :cl-who)
 (defpackage :serv
-  (:use :cl :sb-bsd-sockets))
+  (:use :cl :sb-bsd-sockets :cl-who))
 (in-package :serv)
 
 (declaim (optimize (speed 0) (safety 3) (debug 3)))
 
-(defparameter cont "<html>
-<body>
-hello <a href=\"test.html\">world</a>
+
+
+(defparameter cont "
 <script type=\"text/javascript\">
 <!--
+function httpSuccess(r){
+  try{
+    return (r.status>=200 && r.status<300) || // anything in 200 range is good
+            r.status==304; // from browser cache
+  } catch(e){}
+  return false;
+}
+function httpData(r,type){
+  var ct=r.getResponseHeader(\"content-type\");
+  var data=!type && ct && ct.indexOf(\"xml\") >=0;
+  data=type == \"xml\" || data ? r.responseXML : r.responseText;
+  if(type==\"script\")
+    eval.call(window,data);
+  return data;
+}
+window.onload=function(){
 var c=new XMLHttpRequest();
 c.onreadystatechange=function(){
-  if(this.readyState == 2)
-    print(c.getResponseHeader(\"Content-type\"));
+  if(c.readyState==4){
+   if(httpSuccess(c)){
+    var s=document.getElementById(\"feed\");
+    s.innerHTML=c.responseText;
+   }
+   c=null; 
+  }
 }
 c.open(\"GET\",\"test.txt\");
 c.send(\"127.0.0.1\");
+}
 //-->
-</script>
-</body>
-</html>")  
+</script>")  
 
 (defun init-serv ()
   (let ((s (make-inet-socket :stream :tcp)))
@@ -50,13 +71,23 @@ c.send(\"127.0.0.1\");
 				:buffering :none)))
     
     ;;(read-sequence a sm)
-    (format t "~a~%" (read-get-request sm)) 
-    ;; 200 means Ok, request fullfilled document follows
-    (format sm "HTTP/1.1 200 OK~%Content-type: text/html~%Content-Length: ~a~%~%~a~%" 
-	    (length cont) cont)
-    (close sm)))
+    (let ((r (read-get-request sm)))
+      (format t "~a~%" r) 
+      ;; 200 means Ok, request fullfilled document follows
+      (format sm "HTTP/1.1 200 OK~%Content-type: text/html~%~%")
+      (cond ((string= r "/") 
+	     (with-html-output (sm)
+	       (htm (:html
+		     (:body
+		      (:div :id "feed"
+			    (str (format nil "~a" (get-internal-real-time)))))
+		     (str cont))))) 
+	    ((string= r "/test.txt")
+	     (format sm "<b>~a</b>" (get-internal-real-time)))
+	    (t (format sm "error")))
+      
+      (close sm))))
 
-;(get-internal-real-time)
 
 ;#|
 (defvar s (init-serv))
