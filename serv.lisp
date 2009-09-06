@@ -8,9 +8,38 @@
 (declaim (optimize (speed 0) (safety 3) (debug 3)))
 
 
+(defun read-ways ()
+  (with-open-file (s "coords")
+    (loop for line = (read-line s nil nil)
+	  while line
+	  collect
+	  (cond ((= 1 (length line)) 'way)
+		(t (multiple-value-bind (first st)
+		       (read-from-string line) 
+		     (list (* (- first 51.502) 100 200)
+			   (* (+ (read-from-string (subseq line st)) 0.090) 100 200))))))))
 
-(defparameter cont "
-<script type=\"text/javascript\">
+(defun draw-ways (ways sm)
+  (loop with j = 0  ;; start counting points in each way
+	and k = 0 ;; count the ways
+	for coords in ways
+	;while (< k 3)
+	do
+	(cond ((eq coords 'way) 
+	       (unless (= 0 k)
+		 (format sm "q.stroke();~%"))
+	       (format sm "q.beginPath(~a);~%" k)
+	       (setf k (1+ k))
+	       (setf j 0))
+	      (t
+	       (if (= 0 j)
+		 (format sm "q.moveTo(~a,~a);~%" (first coords) (second coords))
+		 (format sm "q.lineTo(~a,~a);~%" (first coords) (second coords)))
+	       (setf j (1+ j)))))
+  (format sm "q.stroke();~%"))
+
+(defparameter cont1 "
+<script type='text/javascript'>
 <!--
 function httpSuccess(r){
   try{
@@ -19,27 +48,32 @@ function httpSuccess(r){
   } catch(e){}
   return false;
 }
-function httpData(r,type){
-  var ct=r.getResponseHeader(\"content-type\");
-  var data=!type && ct && ct.indexOf(\"xml\") >=0;
-  data=type == \"xml\" || data ? r.responseXML : r.responseText;
-  if(type==\"script\")
-    eval.call(window,data);
-  return data;
+function draw(){
+  var q=document.getElementById('canvas').getContext('2d');
+  q.save();
+   q.clearRect(0,0,400,400);
+   q.strokeStyle='black';
+   q.lineWidth=1;
+   q.save();")
+
+(defparameter cont2 "
+   q.restore();
+  q.restore();
 }
 window.onload=function(){
 var c=new XMLHttpRequest();
 c.onreadystatechange=function(){
   if(c.readyState==4){
    if(httpSuccess(c)){
-    var s=document.getElementById(\"feed\");
+    var s=document.getElementById('feed');
     s.innerHTML=c.responseText;
+    draw();
    }
    c=null; 
   }
 }
-c.open(\"GET\",\"test.txt\");
-c.send(\"127.0.0.1\");
+c.open('GET','test.txt');
+c.send('127.0.0.1');
 }
 //-->
 </script>")  
@@ -71,7 +105,12 @@ c.send(\"127.0.0.1\");
 				:buffering :none)))
     
     ;;(read-sequence a sm)
-    (let ((r (read-get-request sm)))
+    (let ((r (read-get-request sm))
+	  (cont (concatenate 'string 
+			     cont1 
+			     (with-output-to-string (stream)
+			       (draw-ways (read-ways) stream))
+			     cont2)))
       (format t "~a~%" r) 
       ;; 200 means Ok, request fullfilled document follows
       (format sm "HTTP/1.1 200 OK~%Content-type: text/html~%~%")
@@ -80,7 +119,8 @@ c.send(\"127.0.0.1\");
 	       (htm (:html
 		     (:body
 		      (:div :id "feed"
-			    (str (format nil "~a" (get-internal-real-time)))))
+			    (str (format nil "~a" (get-internal-real-time))))
+		      (:canvas :id "canvas" :height 150 :width 150))
 		     (str cont))))) 
 	    ((string= r "/test.txt")
 	     (format sm "<b>~a</b>" (get-internal-real-time)))
