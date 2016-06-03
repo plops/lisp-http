@@ -1,4 +1,4 @@
-
+(ql:quickload :cl-who)
 (require :sb-bsd-sockets)
 (require :cl-who)
 (defpackage :serv
@@ -79,7 +79,7 @@ c.send('127.0.0.1');
 </script>")  
 
 (defun init-serv ()
-  (let ((s (make-inet-socket :stream :tcp)))
+  (let ((s (make-instance 'inet-socket :type :stream :protocol :tcp)))
     (setf (sockopt-reuse-address s) t)
     (socket-bind s (make-inet-address "127.0.0.1") 8080)
     (socket-listen s 5)
@@ -129,10 +129,10 @@ c.send('127.0.0.1');
       (close sm))))
 
 
-;#|
+#+nil
 (defvar s (init-serv))
+#+nil
 (loop
  (handle-connection s))
+#+nil
 (socket-close s) 
-;|#
-
