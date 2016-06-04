@@ -125,18 +125,25 @@ c.send('127.0.0.1');
 		      (:div :id "feed"
 			    (str (format nil "~a" (get-internal-real-time))))
 		      (:canvas :id "canvas" :height 150 :width 150))
-		     (str cont))))) 
+		     (str cont))))
+	     (close sm)) 
 	    ((string= r "/test.txt")
 	     (format sm "HTTP/1.1 200 OK~%Content-type: text/html~%~%")
-	     (format sm "<b>~a</b>" (get-internal-real-time)))
+	     (format sm "<b>~a</b>" (get-internal-real-time))
+	     (close sm))
 	    ((string= r "/event")
-	     (format sm "HTTP/1.1 200 OK~%Content-type: text/event-stream~%~%")
-	     (format sm "data: ~a~C~C~C~C" (get-internal-real-time)
-		     #\return #\linefeed
-		     #\return #\linefeed))
-	    (t (format sm "error")))
-      
-      (close sm))))
+	     (sb-thread:make-thread 
+	      #'(lambda ()
+		  (format sm "HTTP/1.1 200 OK~%Content-type: text/event-stream~%~%")
+		  (loop for i below 100 do
+		       (format sm "data: ~a~C~C~C~C" (get-internal-real-time)
+			       #\return #\linefeed
+			       #\return #\linefeed)
+		       (sleep .5))
+		  (close sm))
+	      :name "pusher"))
+	    (t (format sm "error")
+	       (close sm))))))
 
 
 #+nil
