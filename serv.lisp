@@ -73,7 +73,7 @@ c.onreadystatechange=function(){
    if(httpSuccess(c)){
     var s=document.getElementById('feed');
     s.innerHTML=c.responseText;
-    draw();
+    //draw();
    }
    c=null; 
   }
