@@ -63,7 +63,10 @@ function draw(){
 window.onload=function(){
 var source = new EventSource('event');
 source.addEventListener('message',function(e){
-  console.log(e.data);},false);
+  console.log(e.data);
+  var s=document.getElementById('feed');
+  s.innerHTML=e.data;
+    },false);
 var c=new XMLHttpRequest();
 c.onreadystatechange=function(){
   if(c.readyState==4){
