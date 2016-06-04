@@ -63,7 +63,7 @@ function draw(){
 window.onload=function(){
 var source = new EventSource('event');
 source.addEventListener('message',function(e){
-  console.log(e.data);
+//  console.log(e.data);
   var s=document.getElementById('feed');
   s.innerHTML=e.data;
     },false);
@@ -103,6 +103,19 @@ c.send('127.0.0.1');
 			 (search " " line :start2 start)))))))
   (error "no GET found in request"))
 
+(defun pusher-kernel (sm)
+  (format sm "data: <b>~a</b>~C~C~C~C" (get-internal-real-time)
+	       #\return #\linefeed
+	       #\return #\linefeed)
+       (sleep .016))
+
+
+(defun pusher (sm)
+  (format sm "HTTP/1.1 200 OK~%Content-type: text/event-stream~%~%")
+  (loop for i below 10000 do
+       (pusher-kernel sm))
+  (close sm))
+
 (defun handle-connection (s)
   (let ((sm (socket-make-stream (socket-accept s)
 				:output t
@@ -137,13 +150,7 @@ c.send('127.0.0.1');
 	    ((string= r "/event")
 	     (sb-thread:make-thread 
 	      #'(lambda ()
-		  (format sm "HTTP/1.1 200 OK~%Content-type: text/event-stream~%~%")
-		  (loop for i below 100 do
-		       (format sm "data: ~a~C~C~C~C" (get-internal-real-time)
-			       #\return #\linefeed
-			       #\return #\linefeed)
-		       (sleep .5))
-		  (close sm))
+		  (pusher sm))
 	      :name "pusher"))
 	    (t (format sm "error")
 	       (close sm))))))
