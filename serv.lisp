@@ -61,6 +61,9 @@ function draw(){
   q.restore();
 }
 window.onload=function(){
+var source = new EventSource('event');
+source.addEventListener('message',function(e){
+  console.log(e.data);},false);
 var c=new XMLHttpRequest();
 c.onreadystatechange=function(){
   if(c.readyState==4){
@@ -113,8 +116,9 @@ c.send('127.0.0.1');
 			     cont2)))
       (format t "~a~%" r) 
       ;; 200 means Ok, request fullfilled document follows
-      (format sm "HTTP/1.1 200 OK~%Content-type: text/html~%~%")
+      
       (cond ((string= r "/") 
+	     (format sm "HTTP/1.1 200 OK~%Content-type: text/html~%~%")
 	     (with-html-output (sm)
 	       (htm (:html
 		     (:body
@@ -123,7 +127,13 @@ c.send('127.0.0.1');
 		      (:canvas :id "canvas" :height 150 :width 150))
 		     (str cont))))) 
 	    ((string= r "/test.txt")
+	     (format sm "HTTP/1.1 200 OK~%Content-type: text/html~%~%")
 	     (format sm "<b>~a</b>" (get-internal-real-time)))
+	    ((string= r "/event")
+	     (format sm "HTTP/1.1 200 OK~%Content-type: text/event-stream~%~%")
+	     (format sm "data: ~a~C~C~C~C" (get-internal-real-time)
+		     #\return #\linefeed
+		     #\return #\linefeed))
 	    (t (format sm "error")))
       
       (close sm))))
