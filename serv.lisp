@@ -104,10 +104,22 @@ c.send('127.0.0.1');
   (error "no GET found in request"))
 
 (defun pusher-kernel (sm)
-  (format sm "data: <b>~a</b>~C~C~C~C" (get-internal-real-time)
+  (format sm "data: ")
+  (with-html-output (sm)
+    (:table
+     (loop for i below 25 by 5 do
+	  (htm (:tr
+		(loop for j from i below (+ i 5)
+		   do
+		     (htm (:td
+			   (fmt "~a" (if (= j 13)
+					 (get-internal-run-time)
+					 (1+ j)
+					 ))))))))))
+  (format sm "~C~C~C~C" 
 	       #\return #\linefeed
 	       #\return #\linefeed)
-       (sleep .016))
+  (sleep .016))
 
 
 (defun pusher (sm)
