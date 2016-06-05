@@ -1,6 +1,8 @@
-(ql:quickload :cl-who)
-(require :sb-bsd-sockets)
-(require :cl-who)
+(eval-when (:compile-toplevel)
+  (ql:quickload :cl-who)
+  (require :sb-bsd-sockets)
+  (require :sb-concurrency)
+  (require :cl-who))
 (defpackage :serv
   (:use :cl :sb-bsd-sockets :cl-who))
 (in-package :serv)
@@ -91,6 +93,11 @@ c.send('127.0.0.1');
     (socket-listen s 5)
     s))
 
+
+
+
+
+
 (defun read-get-request (sm)
   (loop for line = (read-line sm)
 	while line
@@ -103,24 +110,40 @@ c.send('127.0.0.1');
 			 (search " " line :start2 start)))))))
   (error "no GET found in request"))
 
+(defparameter *pusher-mb* (sb-concurrency:make-mailbox))
+
+
+#+nil
+(sb-concurrency:send-message *pusher-mb*
+ (with-output-to-string (sm)
+   (progn (format sm "data: ")
+	  (with-html-output (sm)
+	    (:table
+	     (loop for i below 25 by 5 do
+		  (htm (:tr
+			(loop for j from i below (+ i 5)
+			   do
+			     (htm (:td
+				   (if (= j 11)
+				       (htm (:font :color "red"
+						   (fmt "~a" (get-internal-run-time))))
+				       (fmt "~a" (1+ j)))
+				   ))))))))
+	  (format sm "~C~C~C~C" 
+		  #\return #\linefeed
+		  #\return #\linefeed))))
+
+
+
 (defun pusher-kernel (sm)
-  (format sm "data: ")
-  (with-html-output (sm)
-    (:table
-     (loop for i below 25 by 5 do
-	  (htm (:tr
-		(loop for j from i below (+ i 5)
-		   do
-		     (htm (:td
-			   (if (= j 11)
-			       (htm (:font :color "red"
-				       (fmt "~a" (get-internal-run-time))))
-			       (fmt "~a" (1+ j)))
-			   ))))))))
-  (format sm "~C~C~C~C" 
-	       #\return #\linefeed
-	       #\return #\linefeed)
-  (sleep .016))
+  (when *pusher-mb*
+   (write-string
+    (let ((msg (sb-concurrency:receive-message *pusher-mb* :timeout 1)))
+      (or msg
+	  (format nil "data: <b>no update</b>~C~C~C~C"
+		  #\return #\linefeed
+		  #\return #\linefeed)))
+    sm)))
 
 
 (defun pusher (sm)
@@ -172,7 +195,10 @@ c.send('127.0.0.1');
 #+nil
 (defvar s (init-serv))
 #+nil
-(loop
- (handle-connection s))
+(sb-thread:make-thread
+ #'(lambda ()
+     (loop
+	(handle-connection s)))
+ :name "handle-connection")
 #+nil
 (socket-close s) 
