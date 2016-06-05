@@ -112,10 +112,11 @@ c.send('127.0.0.1');
 		(loop for j from i below (+ i 5)
 		   do
 		     (htm (:td
-			   (fmt "~a" (if (= j 13)
-					 (get-internal-run-time)
-					 (1+ j)
-					 ))))))))))
+			   (if (= j 11)
+			       (htm (:font :color "red"
+				       (fmt "~a" (get-internal-run-time))))
+			       (fmt "~a" (1+ j)))
+			   ))))))))
   (format sm "~C~C~C~C" 
 	       #\return #\linefeed
 	       #\return #\linefeed)
