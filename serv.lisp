@@ -114,36 +114,32 @@ c.send('127.0.0.1');
 
 
 #+nil
-(sb-concurrency:send-message *pusher-mb*
- (with-output-to-string (sm)
-   (progn (format sm "data: ")
-	  (with-html-output (sm)
-	    (:table
-	     (loop for i below 25 by 5 do
-		  (htm (:tr
-			(loop for j from i below (+ i 5)
-			   do
-			     (htm (:td
-				   (if (= j 11)
-				       (htm (:font :color "red"
-						   (fmt "~a" (get-internal-run-time))))
-				       (fmt "~a" (1+ j)))
-				   ))))))))
-	  (format sm "~C~C~C~C" 
-		  #\return #\linefeed
-		  #\return #\linefeed))))
+(dotimes (k 1000)
+  (sleep .01)
+  (sb-concurrency:send-message
+   *pusher-mb*
+   (with-output-to-string (sm)
+     (with-html-output (sm)
+       (:table
+	(loop for i below 25 by 5 do
+	     (htm (:tr
+		   (loop for j from i below (+ i 5)
+		      do
+			(htm (:td
+			      (if (= j 11)
+				  (htm (:font :color "red"
+					      (fmt "~a" (get-internal-run-time))))
+				  (fmt "~a" k)))))))))))))
 
-
-
-(defun pusher-kernel (sm)
-  (when *pusher-mb*
-   (write-string
-    (let ((msg (sb-concurrency:receive-message *pusher-mb* :timeout 1)))
-      (or msg
-	  (format nil "data: <b>no update</b>~C~C~C~C"
-		  #\return #\linefeed
-		  #\return #\linefeed)))
-    sm)))
+(let ((old-msg ""))
+ (defun pusher-kernel (sm)
+   (when *pusher-mb*
+     (format sm "data: ~a~C~C~C~C"
+	     (let ((msg (sb-concurrency:receive-message *pusher-mb* :timeout 1)))
+	       (if msg
+		   (setf old-msg msg)
+		   (format nil "<b>no update</b>~a" old-msg)))
+	     #\return #\linefeed #\return #\linefeed))))
 
 
 (defun pusher (sm)
