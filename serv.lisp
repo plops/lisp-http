@@ -4,9 +4,17 @@
   (require :sb-bsd-sockets)
   (require :sb-concurrency)
   (require :cl-who))
+
+;; https://sourceforge.net/p/sbcl/mailman/message/3493412/
+
 (defpackage :serv
   (:use :cl :sb-bsd-sockets :cl-who))
 (in-package :serv)
+
+
+
+
+
 
 (declaim (optimize (speed 0) (safety 3) (debug 3)))
 
@@ -96,7 +104,23 @@ c.send('127.0.0.1');
 
 
 
+(defun update-swank ()
+    (restart-case
+	(let ((connection (or swank::*emacs-connection*
+			      (swank::default-connection))))
+	  (when connection
+	    (swank::handle-requests connection t)))
+      (continue () :report "Continuable: Continue")))
 
+(defun simple-select (streams)
+  (dolist (stream streams)
+    (when (listen stream)
+      (return-from simple-select stream))))
+
+#+nil
+(let ((stream (simple-select (list *socket-stream* *string-stream*))))
+  (print stream)
+  (read-line stream))
 
 
 (defun read-get-request (sm)
